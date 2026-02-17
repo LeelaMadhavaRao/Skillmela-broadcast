@@ -65,26 +65,25 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET - Get broadcasts by admin name
+// GET - Get broadcasts (all broadcasts if no admin_name provided)
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const admin_name = searchParams.get("admin_name");
 
-    if (!admin_name) {
-      return NextResponse.json(
-        { error: "Admin name is required" },
-        { status: 400 }
-      );
-    }
-
     const supabase = createServerClient();
 
-    const { data, error } = await supabase
+    let query = supabase
       .from("broadcasts")
       .select("*")
-      .eq("admin_name", admin_name)
       .order("created_at", { ascending: false });
+
+    // Filter by admin_name if provided
+    if (admin_name) {
+      query = query.eq("admin_name", admin_name);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });

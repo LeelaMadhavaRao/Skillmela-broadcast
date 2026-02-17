@@ -7,18 +7,17 @@ import {
   ArrowLeft,
   GraduationCap,
   Mic,
-  Shield,
   Loader2,
 } from "lucide-react";
 import toast from "react-hot-toast";
-import type { Role } from "@/lib/types";
+
+type Role = "instructor" | "student";
 
 export default function JoinBroadcast() {
   const router = useRouter();
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
-  const [adminName, setAdminName] = useState("");
   const [loading, setLoading] = useState(false);
 
   const roles = [
@@ -35,13 +34,6 @@ export default function JoinBroadcast() {
       icon: GraduationCap,
       color: "green",
       desc: "View messages and download files",
-    },
-    {
-      key: "administrator" as Role,
-      label: "Administrator",
-      icon: Shield,
-      color: "purple",
-      desc: "Manage your broadcasts",
     },
   ];
 
@@ -92,30 +84,6 @@ export default function JoinBroadcast() {
           return;
         }
         router.push(`/broadcast/student?code=${code.trim()}`);
-      } else if (selectedRole === "administrator") {
-        if (!adminName.trim() || !password.trim()) {
-          toast.error("Please fill in all fields");
-          setLoading(false);
-          return;
-        }
-        // Verify admin access
-        const res = await fetch("/api/broadcasts/verify", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            code: code.trim(),
-            password: password.trim(),
-            admin_name: adminName.trim(),
-            role: "administrator",
-          }),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          toast.error(data.error || "Verification failed");
-          setLoading(false);
-          return;
-        }
-        router.push(`/admin?code=${code.trim()}&admin_name=${encodeURIComponent(adminName.trim())}&password=${encodeURIComponent(password.trim())}`);
       }
     } catch {
       toast.error("Something went wrong");
@@ -155,7 +123,7 @@ export default function JoinBroadcast() {
             <label className="block text-sm font-medium text-gray-300 mb-3">
               Select your role
             </label>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-4">
               {roles.map((role) => {
                 const Icon = role.icon;
                 const isSelected = selectedRole === role.key;
@@ -190,21 +158,6 @@ export default function JoinBroadcast() {
           {/* Form */}
           {selectedRole && (
             <form onSubmit={handleJoin} className="space-y-4">
-              {selectedRole === "administrator" && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Administrator Name
-                  </label>
-                  <input
-                    type="text"
-                    value={adminName}
-                    onChange={(e) => setAdminName(e.target.value)}
-                    placeholder="Enter your admin name"
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors"
-                  />
-                </div>
-              )}
-
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Broadcast Code
@@ -218,8 +171,7 @@ export default function JoinBroadcast() {
                 />
               </div>
 
-              {(selectedRole === "instructor" ||
-                selectedRole === "administrator") && (
+              {selectedRole === "instructor" && (
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     Password

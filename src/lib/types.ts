@@ -17,4 +17,4 @@ export interface Message {
   updated_at: string;
 }
 
-export type Role = "instructor" | "student" | "administrator";
+export type Role = "instructor" | "student";
