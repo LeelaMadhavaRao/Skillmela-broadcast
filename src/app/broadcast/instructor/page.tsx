@@ -24,6 +24,9 @@ function InstructorBroadcastContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const code = searchParams.get("code") || "";
+  const passwordParam = searchParams.get("password") || "";
+  const [authenticated, setAuthenticated] = useState(false);
+  const [verifying, setVerifying] = useState(true);
   const [messages, setMessages] = useState<Message[]>([]);
   const [broadcastId, setBroadcastId] = useState<string>("");
   const [newMessage, setNewMessage] = useState("");
@@ -35,12 +38,47 @@ function InstructorBroadcastContent() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Verify instructor credentials on mount
+  useEffect(() => {
+    const verifyAccess = async () => {
+      if (!code || !passwordParam) {
+        toast.error("Access denied. Please join through the proper channel.");
+        router.push("/join");
+        return;
+      }
+
+      try {
+        const res = await fetch("/api/broadcasts/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code, password: passwordParam, role: "instructor" }),
+        });
+
+        if (!res.ok) {
+          const data = await res.json();
+          toast.error(data.error || "Authentication failed. Invalid code or password.");
+          router.push("/join");
+          return;
+        }
+
+        setAuthenticated(true);
+      } catch {
+        toast.error("Authentication failed. Please try again.");
+        router.push("/join");
+      } finally {
+        setVerifying(false);
+      }
+    };
+
+    verifyAccess();
+  }, [code, passwordParam, router]);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   const fetchMessages = useCallback(async () => {
-    if (!code) return;
+    if (!code || !authenticated) return;
     try {
       const res = await fetch(`/api/messages?code=${code}`);
       const data = await res.json();
@@ -56,11 +94,13 @@ function InstructorBroadcastContent() {
     } finally {
       setLoading(false);
     }
-  }, [code, router]);
+  }, [code, router, authenticated]);
 
   useEffect(() => {
-    fetchMessages();
-  }, [fetchMessages]);
+    if (authenticated) {
+      fetchMessages();
+    }
+  }, [fetchMessages, authenticated]);
 
   // Real-time subscription
   useEffect(() => {
@@ -134,6 +174,7 @@ function InstructorBroadcastContent() {
     try {
       const formData = new FormData();
       formData.append("broadcast_id", broadcastId);
+      formData.append("password", passwordParam);
       if (newMessage.trim()) formData.append("content", newMessage.trim());
       if (file) formData.append("file", file);
 
@@ -174,7 +215,7 @@ function InstructorBroadcastContent() {
       const res = await fetch(`/api/messages/${editingId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: editContent.trim() }),
+        body: JSON.stringify({ content: editContent.trim(), password: passwordParam }),
       });
 
       if (res.ok) {
@@ -196,7 +237,7 @@ function InstructorBroadcastContent() {
     setMessages((prev) => prev.filter((m) => m.id !== messageId));
 
     try {
-      const res = await fetch(`/api/messages/${messageId}`, {
+      const res = await fetch(`/api/messages/${messageId}?password=${encodeURIComponent(passwordParam)}`, {
         method: "DELETE",
       });
 
@@ -212,6 +253,28 @@ function InstructorBroadcastContent() {
       fetchMessages();
     }
   };
+
+  if (verifying) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-3" />
+          <p className="text-sm text-gray-400">Verifying credentials...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!authenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-400 mb-4">Access denied. Redirecting...</p>
+          <Loader2 className="w-6 h-6 animate-spin text-gray-500 mx-auto" />
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

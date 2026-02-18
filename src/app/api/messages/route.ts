@@ -56,11 +56,19 @@ export async function POST(request: NextRequest) {
     const broadcast_id = formData.get("broadcast_id") as string;
     const content = formData.get("content") as string | null;
     const file = formData.get("file") as File | null;
+    const password = formData.get("password") as string | null;
 
     if (!broadcast_id) {
       return NextResponse.json(
         { error: "Broadcast ID is required" },
         { status: 400 }
+      );
+    }
+
+    if (!password) {
+      return NextResponse.json(
+        { error: "Password is required for sending messages" },
+        { status: 401 }
       );
     }
 
@@ -72,6 +80,27 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = createServerClient();
+
+    // Verify password against broadcast
+    const { data: broadcast, error: broadcastError } = await supabase
+      .from("broadcasts")
+      .select("password")
+      .eq("id", broadcast_id)
+      .single();
+
+    if (broadcastError || !broadcast) {
+      return NextResponse.json(
+        { error: "Broadcast not found" },
+        { status: 404 }
+      );
+    }
+
+    if (broadcast.password !== password) {
+      return NextResponse.json(
+        { error: "Unauthorized: Invalid password" },
+        { status: 401 }
+      );
+    }
 
     let file_url: string | null = null;
     let file_name: string | null = null;

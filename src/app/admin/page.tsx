@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -22,37 +22,48 @@ function AdminDashboardContent() {
   const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [authenticated, setAuthenticated] = useState(false);
 
-  const fetchBroadcasts = useCallback(async () => {
-    if (!admin_name) return;
-    try {
-      const res = await fetch(
-        `/api/broadcasts?admin_name=${encodeURIComponent(admin_name)}`
-      );
-      const data = await res.json();
-      if (res.ok) {
-        // Filter only broadcasts matching the password
-        const filtered = data.filter(
-          (b: Broadcast) => b.password === password
-        );
-        setBroadcasts(filtered);
-      } else {
-        toast.error("Failed to load broadcasts");
-      }
-    } catch {
-      toast.error("Failed to load broadcasts");
-    } finally {
-      setLoading(false);
-    }
-  }, [admin_name, password]);
-
+  // Verify admin credentials on mount before showing anything
   useEffect(() => {
     if (!admin_name || !password) {
+      toast.error("Access denied. Please join through the proper channel.");
       router.push("/join");
       return;
     }
-    fetchBroadcasts();
-  }, [admin_name, password, fetchBroadcasts, router]);
+
+    // Verify at least one broadcast matches credentials
+    const verifyAndFetch = async () => {
+      try {
+        const res = await fetch(
+          `/api/broadcasts?admin_name=${encodeURIComponent(admin_name)}`
+        );
+        const data = await res.json();
+        if (res.ok) {
+          const filtered = data.filter(
+            (b: Broadcast) => b.password === password
+          );
+          if (filtered.length === 0) {
+            toast.error("Invalid credentials. No matching broadcasts found.");
+            router.push("/join");
+            return;
+          }
+          setBroadcasts(filtered);
+          setAuthenticated(true);
+        } else {
+          toast.error("Failed to verify credentials");
+          router.push("/join");
+        }
+      } catch {
+        toast.error("Failed to verify credentials");
+        router.push("/join");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    verifyAndFetch();
+  }, [admin_name, password, router]);
 
   const handleDelete = async (broadcast: Broadcast) => {
     if (
@@ -91,7 +102,21 @@ function AdminDashboardContent() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-purple-500 mx-auto mb-3" />
+          <p className="text-sm text-gray-400">Verifying credentials...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!authenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-400 mb-4">Access denied. Redirecting...</p>
+          <Loader2 className="w-6 h-6 animate-spin text-gray-500 mx-auto" />
+        </div>
       </div>
     );
   }

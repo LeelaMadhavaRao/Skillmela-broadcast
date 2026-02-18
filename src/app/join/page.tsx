@@ -69,7 +69,7 @@ export default function JoinBroadcast() {
           setLoading(false);
           return;
         }
-        router.push(`/broadcast/instructor?code=${code.trim()}`);
+        router.push(`/broadcast/instructor?code=${encodeURIComponent(code.trim())}&password=${encodeURIComponent(password.trim())}`);
       } else if (selectedRole === "student") {
         // Verify student access (code only)
         const res = await fetch("/api/broadcasts/verify", {
