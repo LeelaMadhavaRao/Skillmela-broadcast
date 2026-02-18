@@ -27,7 +27,7 @@ export default function ManagePanel() {
   const [creating, setCreating] = useState(false);
 
   // Simple client-side auth (for demo - use proper auth in production)
-  const ADMIN_PASSWORD = "admin123"; // Change this in production
+  const ADMIN_PASSWORD = "PAIE@srkr"; // Change this in production
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
